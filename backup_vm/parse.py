@@ -210,6 +210,7 @@ class ArgumentParser(metaclass=ABCMeta):
             self.prog = os.path.basename(args[0])
         except Exception:
             self.prog = default_name
+        self.fsfreeze = True
         self.progress = sys.stdout.isatty()
         self.disks = set()
         self.exclude_source_devs = set()
@@ -234,7 +235,9 @@ class ArgumentParser(metaclass=ABCMeta):
             sys.exit()
 
         l = Location.try_location(arg)
-        if arg in {"--exclude-source-dev"} and not self.parsing_borg_args:
+        if arg in {"--no-fsfreeze"} and not self.parsing_borg_args:
+            self.fsfreeze = False
+        elif arg in {"--exclude-source-dev"} and not self.parsing_borg_args:
             self.exclude_source_devs.add(lookahead)
         elif arg in {"--exclude-target-dev"} and not self.parsing_borg_args:
             self.exclude_target_devs.add(lookahead)
@@ -279,7 +282,8 @@ class ArgumentParser(metaclass=ABCMeta):
             elif arg.startswith("--") and "=" not in arg and arg != "--borg-args" and not self.parsing_borg_args:
                 if not self.parse_arg(arg, lookahead=lookahead):
                     self.error("unrecognized argument: '{}'".format(arg))
-                skip = True
+                if arg not in ["--no-fsfreeze"]:
+                    skip = True
             else:
                 if not self.parse_arg(arg, lookahead=lookahead):
                     self.error("unrecognized argument: '{}'".format(arg))
@@ -412,6 +416,7 @@ class BVMArgumentParser(ArgumentParser):
             optional arguments:
               -h, --help            show this help message and exit
               -v, --version         show version of the backup-vm package
+              --no-fsfreeze         do not call qemu guest agent to freeze filesystems (prevents system freeze with Debian 11)
               --exclude-source-dev  exclude source device from being backed up, can be repeated
               --exclude-target-dev  exclude target device from being backed up, can be repeated
               -p, --progress        force progress display even if stdout isn't a tty

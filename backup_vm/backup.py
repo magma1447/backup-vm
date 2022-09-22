@@ -59,7 +59,7 @@ def main():
     # dump the xml before the snapshot so that we have the original disk devices
     dom_xml = dom.XMLDesc(0)
 
-    with snapshot.Snapshot(dom, all_disks, args.progress), \
+    with snapshot.Snapshot(dom, all_disks, args.fsfreeze, args.progress), \
             builder.ArchiveBuilder(disks_to_backup) as archive_dir:
 
         f = open("origin.txt", "w")

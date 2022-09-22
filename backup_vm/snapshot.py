@@ -17,9 +17,10 @@ libvirt.registerErrorHandler(error_handler, None)
 
 class Snapshot:
 
-    def __init__(self, dom, disks, progress=True):
+    def __init__(self, dom, disks, fsfreeze=True, progress=True):
         self.dom = dom
         self.disks = disks
+        self.fsfreeze = fsfreeze
         self.progress = progress
         self.snapshotted = False
         self._do_snapshot()
@@ -32,11 +33,14 @@ class Snapshot:
             libvirt.VIR_ERR_OPERATION_INVALID,
             libvirt.VIR_ERR_ARGUMENT_UNSUPPORTED
         ]
-        try:
-            self.dom.fsFreeze()
-            guest_agent_installed = True
-        except libvirt.libvirtError:
-            guest_agent_installed = False
+        # Debian 11 has issues with freezing filesystems
+        if self.fsfreeze:
+            try:
+                self.dom.fsFreeze()
+                guest_agent_installed = True
+            except libvirt.libvirtError:
+                guest_agent_installed = False
+
         libvirt.ignored_errors = []
         try:
             snapshot_xml = self.generate_snapshot_xml()
@@ -45,7 +49,7 @@ class Snapshot:
             print("Failed to create domain snapshot", file=sys.stderr)
             sys.exit(1)
         finally:
-            if guest_agent_installed:
+            if self.fsfreeze and guest_agent_installed:
                 self.dom.fsThaw()
         self.snapshotted = True
 
