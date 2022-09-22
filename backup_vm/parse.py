@@ -212,6 +212,8 @@ class ArgumentParser(metaclass=ABCMeta):
             self.prog = default_name
         self.progress = sys.stdout.isatty()
         self.disks = set()
+        self.exclude_source_devs = set()
+        self.exclude_target_devs = set()
         self.archives = []
         self.parse_args(args[1:])
 
@@ -230,8 +232,13 @@ class ArgumentParser(metaclass=ABCMeta):
         elif arg in {"-v", "--version"} and not self.parsing_borg_args:
             self.version()
             sys.exit()
+
         l = Location.try_location(arg)
-        if needs_archive and l is not None and l.path is not None and \
+        if arg in {"--exclude-source-dev"} and not self.parsing_borg_args:
+            self.exclude_source_devs.add(lookahead)
+        elif arg in {"--exclude-target-dev"} and not self.parsing_borg_args:
+            self.exclude_target_devs.add(lookahead)
+        elif needs_archive and l is not None and l.path is not None and \
                 (l.proto == "file" or l._host is not None) and l.archive is not None:
             self.parsing_borg_args = False
             l.canonicalize_path()
@@ -259,11 +266,20 @@ class ArgumentParser(metaclass=ABCMeta):
             self.help()
             sys.exit(2)
         self.parsing_borg_args = False
+        skip = False
         for arg, lookahead in itertools.zip_longest(args, args[1:]):
+            if skip:
+                skip = False
+                continue
+
             if arg.startswith("-") and not arg.startswith("--") and "=" not in arg:
                 for c in arg[1:]:
                     if not self.parse_arg("-" + c, lookahead=lookahead):
                         self.error("unrecognized argument: '-{}'".format(c))
+            elif arg.startswith("--") and "=" not in arg and arg != "--borg-args" and not self.parsing_borg_args:
+                if not self.parse_arg(arg, lookahead=lookahead):
+                    self.error("unrecognized argument: '{}'".format(arg))
+                skip = True
             else:
                 if not self.parse_arg(arg, lookahead=lookahead):
                     self.error("unrecognized argument: '{}'".format(arg))
@@ -342,15 +358,15 @@ class MultiArgumentParser(ArgumentParser):
             Batch multiple borg commands into one.
 
             positional arguments:
-              archive          a borg archive path (same format as borg create)
+              archive               a borg archive path (same format as borg create)
 
             optional arguments:
-              -h, --help       show this help message and exit
-              -v, --version    show version of the backup-vm package
-              -l, --path       path for borg to archive (default: .)
-              -p, --progress   force progress display even if stdout isn't a tty
-              -c, --borg-cmd   alternate borg subcommand to run (default: create)
-              --borg-args ...  extra arguments passed straight to borg
+              -h, --help            show this help message and exit
+              -v, --version         show version of the backup-vm package
+              -l, --path            path for borg to archive (default: .)
+              -p, --progress        force progress display even if stdout isn't a tty
+              -c, --borg-cmd        alternate borg subcommand to run (default: create)
+              --borg-args ...       extra arguments passed straight to borg
             """).strip("\n"))
 
 
@@ -389,13 +405,15 @@ class BVMArgumentParser(ArgumentParser):
             Back up a libvirt-based VM using borg.
 
             positional arguments:
-              domain           libvirt domain to back up
-              disk             a domain block device to back up (default: all disks)
-              archive          a borg archive path (same format as borg create)
+              domain                libvirt domain to back up
+              disk                  a domain block device to back up (default: all disks)
+              archive               a borg archive path (same format as borg create)
 
             optional arguments:
-              -h, --help       show this help message and exit
-              -v, --version    show version of the backup-vm package
-              -p, --progress   force progress display even if stdout isn't a tty
-              --borg-args ...  extra arguments passed straight to borg
+              -h, --help            show this help message and exit
+              -v, --version         show version of the backup-vm package
+              --exclude-source-dev  exclude source device from being backed up, can be repeated
+              --exclude-target-dev  exclude target device from being backed up, can be repeated
+              -p, --progress        force progress display even if stdout isn't a tty
+              --borg-args ...       extra arguments passed straight to borg
             """).strip("\n"))

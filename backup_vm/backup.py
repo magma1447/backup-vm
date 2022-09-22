@@ -28,8 +28,16 @@ def main():
         print("Domain has no disks(!)", file=sys.stderr)
         sys.exit(1)
 
-    disks_to_backup = args.disks and {x for x in all_disks if x.target in args.disks} or all_disks
-    if len(disks_to_backup) != len(args.disks or all_disks):
+    disks_to_backup = set()
+    for disk in all_disks:
+        if disk.path not in args.exclude_source_devs and disk.target not in args.exclude_target_devs:
+            disks_to_backup.add(disk)
+    if len(disks_to_backup) == 0:
+        print("Domain has no valid disks(!)", file=sys.stderr)
+        sys.exit(1)
+
+    disks_to_backup = args.disks and {x for x in all_disks if x.target in args.disks} or disks_to_backup
+    if args.disks and len(disks_to_backup) != len(args.disks or all_disks):
         print("Some disks to be backed up don't exist on the domain:",
               *sorted(x.target for x in all_disks if x.target not in args.disks), file=sys.stderr)
         sys.exit(1)
