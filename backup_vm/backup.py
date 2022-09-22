@@ -71,7 +71,7 @@ def main():
         f.close()
 
         for disk in all_disks:
-            if disk in disks_to_backup and disk.type == "dev":
+            if disk.type == "dev":
                 lv = subprocess.check_output(["lvdisplay", disk.path], text=True)
                 f = open( (disk.path + ".lv")[1:].replace("/", "--"), "w" )
                 f.write(lv)
